@@ -14,7 +14,7 @@ public class app {
     /**
      * commands to be executed
      */
-    private static enum command { CREATE, PARK, LEAVE, STATUS};
+    private static enum command { CREATE, PARK, LEAVE, STATUS, QUERY_REG_CARS_BY_COLOR, QUERY_SLOT_CARS_BY_COLOR, QUERY_SLOT_CAR_BY_REG};
 
     /** an object representing a car.*/
     public class Car {
@@ -61,6 +61,11 @@ public class app {
             }
         }
 
+        /**
+         * allocate a parking slot if not already allocated.
+         * @param licenseNumber
+         * @param color
+         */
         public void allocateParking(String licenseNumber, String color) {
             Car c = new Car(licenseNumber,color);
             boolean allocated = false;
@@ -78,6 +83,79 @@ public class app {
             }
         }
 
+        /**
+         * Free an already allocated parking slot.
+         * @param slotToFree 1-based integer representing the parking slot to free.
+         */
+        public void freeParking(int slotToFree)  {
+            guard();
+            if (parkingAllocations.length < slotToFree) {
+                System.err.println("slot to free should be between 1 and " + parkingAllocations.length);
+                System.exit(1);
+            }
+            if (parkingAllocations[slotToFree-1] == null) {
+                log("slot is already free");
+            } else {
+                parkingAllocations[slotToFree-1] = null;
+                log("Slot number " + slotToFree + " is free");
+            }
+        }
+
+        /**
+         * Query registration numbers or slots by color or license number.
+         * @param query
+         * @param queryType "color", "reg"
+         * @param returnType "reg", "slot"
+         */
+        public void doQuery(String query, String queryType, String returnType) {
+
+            List<String> retVal = new ArrayList<String>();
+
+            guard();
+            for (int i=0; i<parkingAllocations.length; i++) {
+                if (parkingAllocations[i] != null) {
+                    if (queryType.equals("color")) {
+                        if (parkingAllocations[i].getColor().equals(query)) {
+                            if (returnType.equals("reg")) {
+                                retVal.add(parkingAllocations[i].getLicenseNumber());
+                            }
+                            else if (returnType.equals("slot")) {
+                                retVal.add(String.valueOf(i + 1));
+                            }
+                        }
+                    } else if (queryType.equals("reg")) {
+                        if (parkingAllocations[i].getLicenseNumber().equals(query)) {
+                            if (returnType.equals("slot")) {
+                                retVal.add(String.valueOf(i + 1));
+                            }
+                        }
+                    }
+                }
+            }
+
+            //print not found
+            if (retVal.size() == 0)
+                System.out.println("Not found");
+
+            //print
+            for (int i = 0; i<retVal.size(); i++) {
+                System.out.print(retVal.get(i));
+                //trying to get the commas right
+                if (i == retVal.size() - 1)
+                    System.out.println();
+                else
+                    System.out.print(", ");
+            }
+        }
+
+        private void guard() {
+            if (parkingAllocations.length == 0 ||
+                    totalSlots == 0) {
+                System.err.println("parking lot not initialized yet!");
+                System.exit(1);
+            }
+
+        }
     }
 
     public ParkingLot parkingLot;
@@ -128,8 +206,18 @@ public class app {
             s = line.split("park")[1].trim();
         } else if (line.startsWith("leave")) {
             c = command.LEAVE;
+            s = line.split("leave")[1].trim();
         } else if (line.startsWith("status")) {
             c = command.STATUS;
+        } else if (line.startsWith("registration_numbers_for_cars_with_colour")) {
+            c = command.QUERY_REG_CARS_BY_COLOR;
+            s = line.split("registration_numbers_for_cars_with_colour")[1].trim();
+        } else if (line.startsWith("slot_numbers_for_cars_with_colour")) {
+            c = command.QUERY_SLOT_CARS_BY_COLOR;
+            s = line.split("slot_numbers_for_cars_with_colour")[1].trim();
+        } else if (line.startsWith("slot_number_for_registration_number")) {
+            c = command.QUERY_SLOT_CAR_BY_REG;
+            s = line.split("slot_number_for_registration_number")[1].trim();
         } else {
             System.err.println("unknown command " + line);
             System.exit(1);
@@ -147,6 +235,18 @@ public class app {
         } else if (c.containsKey(command.PARK)) {
             String[] splits = c.get(command.PARK).split("\\s");
             parkingLot.allocateParking(splits[0].trim(),splits[1].trim());
+        } else if (c.containsKey(command.LEAVE)) {
+            int slotToLeave = Integer.parseInt(c.get(command.LEAVE).trim());
+            parkingLot.freeParking(slotToLeave);
+        } else if (c.containsKey(command.QUERY_REG_CARS_BY_COLOR)) {
+            String query = c.get(command.QUERY_REG_CARS_BY_COLOR).trim();
+            parkingLot.doQuery(query,"color","reg");
+        } else if (c.containsKey(command.QUERY_SLOT_CAR_BY_REG)) {
+            String query = c.get(command.QUERY_SLOT_CAR_BY_REG).trim();
+            parkingLot.doQuery(query,"reg","slot");
+        } else if (c.containsKey(command.QUERY_SLOT_CARS_BY_COLOR)) {
+            String query = c.get(command.QUERY_SLOT_CARS_BY_COLOR).trim();
+            parkingLot.doQuery(query,"color","slot");
         } else {
             System.err.println("unknown command " + c);
             System.exit(1);
